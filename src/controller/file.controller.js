@@ -1,18 +1,23 @@
 const uploadFile = require("../middleware/upload");
 const fs = require("fs");
+
 const baseUrl = "http://localhost:8080/files/";
+const { createFFmpeg, fetchFile } = require('@ffmpeg/ffmpeg');
+const ffmpeg = createFFmpeg({ log: true });
 
 const upload = async (req, res) => {
   try {
     await uploadFile(req, res);
+    await convert(req.file.originalname);
 
     if (req.file == undefined) {
       return res.status(400).send({ message: "Please upload a file!" });
     }
 
     res.status(200).send({
-      message: "Uploaded the file successfully: " + req.file.originalname,
+      message: "Converted file " + req.file.originalname + ".mp4",
     });
+
   } catch (err) {
     console.log(err);
 
@@ -26,6 +31,15 @@ const upload = async (req, res) => {
       message: `Could not upload the file: ${req.file.originalname}. ${err}`,
     });
   }
+};
+
+// ffmpeg -i video.webm -preset veryfast video.mp4
+// ffmpeg -i video.webm -c:v copy video.mp4
+const convert = async (fileName) => {
+    if (!ffmpeg.isLoaded()) { await ffmpeg.load(); }
+    ffmpeg.FS('writeFile', fileName, await fetchFile(__basedir + "/resources/static/assets/uploads/"+ fileName));
+    await ffmpeg.run('-i', fileName, fileName+".mp4");
+    await fs.promises.writeFile(__basedir + "/resources/static/assets/mp4/"+ fileName + ".mp4", ffmpeg.FS('readFile', fileName+'.mp4'));
 };
 
 const getListFiles = (req, res) => {
